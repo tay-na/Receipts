@@ -63,14 +63,28 @@ function humanError(e) {
 }
 
 // ---------- список и поиск ----------
+const CATEGORIES = ['Завтраки', 'Супы', 'Салаты', 'Горячее', 'Закуски и бутерброды', 'Выпечка', 'Десерты', 'Соусы и намазки', 'Напитки'];
+const OTHER = 'Без раздела';
+ui.cat = sessionStorageGet('c') || 'all';
+
 async function loadRecipes(force = false) {
   if (recipes && !force) return recipes;
   const { data, error } = await sb.from('recipes')
-    .select('id,kind,title,status,rating,source_type,source_author,tags,recipe_ingredients(name),recipe_media(path,kind,position)')
+    .select('id,kind,title,status,rating,category,hidden,source_type,source_author,tags,recipe_ingredients(name),recipe_media(path,kind,position)')
     .order('title');
   if (error) throw error;
   recipes = data;
   return data;
+}
+
+function rowHtml({ r, hits }) {
+  return `
+      <a class="row${cover(r) ? ' has-thumb' : ''}" href="#/r/${r.id}">
+        ${cover(r) ? `<img class="thumb" src="${esc(cover(r).replace('.webp', '-t.webp'))}" alt="" loading="lazy">` : ''}
+        <div class="rt"><b>${esc(r.title)}${r.kind === 'idea' ? '<span class="badge idea">идея</span>' : ''}${r.status === 'cooked' ? '<span class="badge cooked">готовила</span>' : ''}${r.hidden ? '<span class="badge off">скрыт</span>' : ''}</b>
+        <div class="sub">${esc([SRC[r.source_type], r.source_author].filter(Boolean).join(' · '))}${r.rating ? ' · ' + '★'.repeat(r.rating) : ''}</div>
+        ${hits.length ? `<div class="hit">есть: ${hits.map(h => `<mark>${esc(h)}</mark>`).join(', ')}</div>` : ''}
+      </div></a>`;
 }
 
 async function showList() {
@@ -81,11 +95,18 @@ async function showList() {
     const { data: houses } = await sb.from('households').select('id');
     if (!houses?.length) return showNoHouse();
   }
+  const visible = list.filter(r => !r.hidden);
+  const cats = [...CATEGORIES, OTHER].map(c => [c, visible.filter(r => (r.category || OTHER) === c).length]).filter(([, n]) => n);
+  if (ui.cat !== 'all' && !cats.some(([c]) => c === ui.cat)) ui.cat = 'all';
   app.innerHTML = `
     <div class="top">
       <input class="search" id="q" type="search" placeholder="Блюдо или продукты" value="${esc(ui.q)}" autocomplete="off">
-      <div class="chips" id="chips">
-        ${[['all', 'Все'], ['cooked', 'Готовила'], ['want', 'Хочу попробовать'], ['idea', 'Идеи']]
+      <div class="chips" id="cats">
+        <button class="chip ${ui.cat === 'all' ? 'on' : ''}" data-c="all">Все разделы</button>
+        ${cats.map(([c, n]) => `<button class="chip ${ui.cat === c ? 'on' : ''}" data-c="${esc(c)}">${esc(c)} <span class="n2">${n}</span></button>`).join('')}
+      </div>
+      <div class="chips small" id="chips">
+        ${[['all', 'Все'], ['cooked', 'Готовила'], ['want', 'Хочу попробовать'], ['idea', 'Идеи'], ['hidden', 'Скрытые']]
           .map(([k, t]) => `<button class="chip ${ui.filter === k ? 'on' : ''}" data-f="${k}">${t}</button>`).join('')}
       </div>
     </div>
@@ -97,7 +118,13 @@ async function showList() {
   app.querySelector('#chips').addEventListener('click', e => {
     const b = e.target.closest('[data-f]'); if (!b) return;
     ui.filter = b.dataset.f; sessionStorageSet('f', ui.filter);
-    app.querySelectorAll('.chip').forEach(c => c.classList.toggle('on', c === b)); draw();
+    app.querySelectorAll('#chips .chip').forEach(c => c.classList.toggle('on', c === b)); draw();
+  });
+  app.querySelector('#cats').addEventListener('click', e => {
+    const b = e.target.closest('[data-c]'); if (!b) return;
+    ui.cat = b.dataset.c; sessionStorageSet('c', ui.cat);
+    app.querySelectorAll('#cats .chip').forEach(c => c.classList.toggle('on', c === b)); draw();
+    window.scrollTo(0, 0);
   });
   app.querySelector('#out').addEventListener('click', async () => { await sb.auth.signOut(); recipes = null; showLogin(); });
   draw();
@@ -106,6 +133,8 @@ async function showList() {
     const words = norm(ui.q).split(/[\s,]+/).filter(Boolean);
     const out = [];
     for (const r of list) {
+      if ((ui.filter === 'hidden') !== !!r.hidden) continue;
+      if (ui.cat !== 'all' && (r.category || OTHER) !== ui.cat) continue;
       if (ui.filter === 'idea' && r.kind !== 'idea') continue;
       if (ui.filter === 'cooked' && r.status !== 'cooked') continue;
       if (ui.filter === 'want' && (r.status !== 'want' || r.kind === 'idea')) continue;
@@ -120,15 +149,17 @@ async function showList() {
       }
       if (ok) out.push({ r, hits });
     }
-    app.querySelector('#count').textContent = words.length || ui.filter !== 'all'
-      ? `Найдено: ${out.length}` : `Всего рецептов: ${out.length}`;
-    app.querySelector('#list').innerHTML = out.map(({ r, hits }) => `
-      <a class="row${cover(r) ? ' has-thumb' : ''}" href="#/r/${r.id}">
-        ${cover(r) ? `<img class="thumb" src="${esc(cover(r).replace('.webp', '-t.webp'))}" alt="" loading="lazy">` : ''}
-        <div class="rt"><b>${esc(r.title)}${r.kind === 'idea' ? '<span class="badge idea">идея</span>' : ''}${r.status === 'cooked' ? '<span class="badge cooked">готовила</span>' : ''}</b>
-        <div class="sub">${esc([SRC[r.source_type], r.source_author].filter(Boolean).join(' · '))}${r.rating ? ' · ' + '★'.repeat(r.rating) : ''}</div>
-        ${hits.length ? `<div class="hit">есть: ${hits.map(h => `<mark>${esc(h)}</mark>`).join(', ')}</div>` : ''}
-      </div></a>`).join('') || `<p class="muted center">Ничего не нашлось</p>`;
+    const filtered = words.length || ui.filter !== 'all' || ui.cat !== 'all';
+    app.querySelector('#count').textContent = filtered ? `Найдено: ${out.length}` : `Всего рецептов: ${out.length}`;
+    const el = app.querySelector('#list');
+    if (!out.length) { el.innerHTML = `<p class="muted center">${ui.filter === 'hidden' ? 'Скрытых рецептов нет' : 'Ничего не нашлось'}</p>`; return; }
+    // Без поиска и без выбранного раздела — группируем по разделам
+    if (ui.cat === 'all' && !words.length) {
+      el.innerHTML = [...CATEGORIES, OTHER].map(c => {
+        const g = out.filter(x => (x.r.category || OTHER) === c);
+        return g.length ? `<h2 class="sec">${esc(c)} <span class="n2">${g.length}</span></h2>${g.map(rowHtml).join('')}` : '';
+      }).join('');
+    } else el.innerHTML = out.map(rowHtml).join('');
   }
 }
 
@@ -218,6 +249,7 @@ async function showRecipe(id) {
   window.scrollTo(0, 0);
   app.innerHTML = `
     <div class="bar"><button class="back" id="back">← Все рецепты</button></div>
+    ${r.hidden ? `<div class="hidden-note">Скрыт из общего списка — «не для меня». Поделиться им по-прежнему можно.</div>` : ''}
     <article class="card">${renderRecipe(r)}
       <div class="tags">${(r.tags || []).map(t => `<span>#${esc(t)}</span>`).join('')}</div>
     </article>
@@ -229,7 +261,10 @@ async function showRecipe(id) {
       </div>
       <div><div class="lbl">Оценка</div><div class="stars" id="stars">${[1, 2, 3, 4, 5].map(n => `<button data-n="${n}" class="${n <= (r.rating || 0) ? 'on' : ''}" aria-label="${n}">★</button>`).join('')}</div></div>
       <div><div class="lbl">Заметки</div><textarea id="notes" placeholder="Соли меньше, духовка 170…">${esc(r.notes || '')}</textarea><div class="saved" id="saved"></div></div>
+      <div><div class="lbl">Раздел меню</div><select id="cat">${[...CATEGORIES].map(c => `<option ${r.category === c ? 'selected' : ''}>${esc(c)}</option>`).join('')}<option value="" ${r.category ? '' : 'selected'}>${OTHER}</option></select></div>
       <button class="btn main" id="share">Поделиться рецептом</button>
+      <button class="btn" id="hide">${r.hidden ? 'Вернуть в общий список' : 'Не для меня — скрыть из списка'}</button>
+      ${r.hidden ? `<button class="btn danger" id="del">Удалить совсем</button>` : ''}
     </div>`;
   app.querySelector('#back').onclick = () => history.length > 1 ? history.back() : (location.hash = '#/');
   const saved = app.querySelector('#saved');
@@ -250,6 +285,16 @@ async function showRecipe(id) {
     const n = +b.dataset.n === r.rating ? null : +b.dataset.n;
     app.querySelectorAll('#stars button').forEach(x => x.classList.toggle('on', n && +x.dataset.n <= n));
     save({ rating: n });
+  };
+  app.querySelector('#cat').onchange = e => save({ category: e.target.value || null });
+  app.querySelector('#hide').onclick = async () => { await save({ hidden: !r.hidden }); showRecipe(id); };
+  const del = app.querySelector('#del');
+  if (del) del.onclick = async () => {
+    if (!del.dataset.sure) { del.dataset.sure = '1'; del.textContent = 'Точно удалить? Нажми ещё раз'; return; }
+    const { error } = await sb.from('recipes').delete().eq('id', id);
+    if (error) { saved.textContent = 'Не удалилось: ' + error.message; return; }
+    recipes = recipes?.filter(x => x.id !== id) || null;
+    location.hash = '#/';
   };
   app.querySelector('#notes').onblur = e => { if (e.target.value !== (r.notes || '')) save({ notes: e.target.value }); };
   app.querySelector('#share').onclick = async () => {

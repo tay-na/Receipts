@@ -10,9 +10,11 @@ def S(text, sec=None):
     return dict(section=sec, text=text)
 
 def R(**kw):
-    """Рецепт. methods: 'духовка' | 'плита' | 'без готовки' | 'вафельница'. media: id фото из экспорта чата."""
+    """Рецепт. category: раздел меню (см. CATEGORIES). methods: 'духовка' | 'плита' | 'без готовки' | 'вафельница'. media: id фото из экспорта чата."""
     d = dict(kind='recipe', summary=None, yield_amount=None, yield_unit=None, time_min=None,
-             status='want', tags=[], methods=[], notes=None, source_type=None, source_author=None,
+             status='want', category=None, tags=[], methods=[], notes=None, source_type=None, source_author=None,
              source_url=None, source_ref=None, original_lang='ru', imported_from=None, media=[], steps=[])
     d.update(kw)
     return d
+
+CATEGORIES = ['Завтраки', 'Супы', 'Салаты', 'Горячее', 'Закуски и бутерброды', 'Выпечка', 'Десерты', 'Соусы и намазки', 'Напитки']

@@ -39,6 +39,8 @@ create table recipes (
   notes         text,                       -- «соли меньше», «духовка 170»
   tags          text[] not null default '{}',
   methods       text[] not null default '{}', -- духовка | плита | без готовки | вафельница
+  category      text,                       -- раздел меню: Завтраки, Супы, Салаты, Горячее, ...
+  hidden        boolean not null default false, -- «не для меня»: не показывать в общем списке
   -- источник
   source_type   text check (source_type in
                   ('instagram','telegram','site','book','magazine','pdf','app','friend','own','other')),
