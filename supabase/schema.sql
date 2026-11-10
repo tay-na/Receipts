@@ -38,6 +38,7 @@ create table recipes (
   rating        smallint check (rating between 1 and 5),
   notes         text,                       -- «соли меньше», «духовка 170»
   tags          text[] not null default '{}',
+  methods       text[] not null default '{}', -- духовка | плита | без готовки | вафельница
   -- источник
   source_type   text check (source_type in
                   ('instagram','telegram','site','book','magazine','pdf','app','friend','own','other')),

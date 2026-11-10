@@ -158,6 +158,7 @@ function renderRecipe(r) {
   const y = [];
   if (r.yield_amount) y.push(`${num(r.yield_amount)} ${esc(r.yield_unit || '')}`);
   if (r.time_min) y.push(`${r.time_min} мин`);
+  if (r.methods?.length) y.push(esc(r.methods.join(', ')));
   const pics = r.media || [];
   const head = `
     <h2>${esc(r.title)}${r.kind === 'idea' ? '<span class="badge idea">идея</span>' : ''}</h2>

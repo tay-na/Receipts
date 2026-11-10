@@ -7,14 +7,18 @@ def q(v):
     if isinstance(v, (int, float)): return repr(v)
     if isinstance(v, list): return "array[" + ",".join(q(x) for x in v) + "]::text[]" if v else "'{}'::text[]"
     return "'" + str(v).replace("'", "''") + "'"
-B = json.load(open(sys.argv[1])); out = ["begin;",
+B = json.load(open(sys.argv[1]))
+ids = ",".join(q(r['imported_from']) for r in B)
+# Повторный запуск заменяет текст рецептов, но сохраняет ваши отметки (статус, оценку, заметки, ссылку для мамы).
+out = ["begin;",
+ f"create temp table keep_marks on commit drop as select imported_from,status,rating,notes,share_token from recipes where imported_from in ({ids});",
  "insert into households(name) select 'Наш дом' where not exists (select 1 from households where name='Наш дом');"]
 for r in B:
     cols = ['kind','title','summary','yield_amount','yield_unit','time_min','status','tags','source_type',
-            'source_author','source_url','source_ref','original_lang','imported_from']
+            'source_author','source_url','source_ref','original_lang','imported_from','methods']
     out.append(f"delete from recipes where imported_from={q(r['imported_from'])};")
     out.append("insert into recipes(household_id," + ",".join(cols) + ") select h.id,"
-               + ",".join(q(r[c]) for c in cols) + " from households h where h.name='Наш дом' limit 1;")
+               + ",".join(q(r.get(c, [] if c == 'methods' else None)) for c in cols) + " from households h where h.name='Наш дом' limit 1;")
     parts = []
     for n, i in enumerate(r['ingredients']):
         parts.append(f"insert into recipe_ingredients(recipe_id,position,section,name,base,amount,amount_max,unit,grams,approx,optional,alt_group,note,raw) select r.id,{n},{q(i['section'])},{q(i['name'])},{q(i['base'])},{q(i['amount'])},{q(i['amount_max'])},{q(i['unit'])},{q(i['grams'])},{q(i['approx'])},{q(i['optional'])},{q(i['alt_group'])},{q(i['note'])},{q(i['raw'])} from r")
@@ -23,5 +27,6 @@ for r in B:
     rid = f"(select id from recipes where imported_from={q(r['imported_from'])})"
     for p in parts:
         out.append(p.replace(" from r", "").replace("select r.id", f"select {rid}") + ";")
+out.append("update recipes r set status=k.status, rating=k.rating, notes=k.notes, share_token=k.share_token from keep_marks k where r.imported_from=k.imported_from;")
 out.append("commit;")
 open(sys.argv[2], 'w').write("\n".join(out)); print(len(B), 'recipes ->', sys.argv[2])
