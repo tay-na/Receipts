@@ -406,10 +406,7 @@ add(R(title='Коктейль с просекко, лимоном и имбир�
     I('джин','джин',60,'мл',raw='2 ounces gin'), I('просекко','просекко',180,'мл',mx=240,raw='6-8 ounces prosecco'), I('лёд','лёд')],
   steps=[S('В шейкер положить ~½ стакана льда, добавить лимонный сок, имбирный сироп и джин, энергично встряхнуть.'),
          S('Разлить по двум бокалам и долить просекко.')]))
-for rid, title, url in [('tg:252364','Пончики из рикотты','http://dolcevitablog.ru/2021/03/17/ponchiki-iz-rikotty/'),
-                        ('tg:280354','Рецепт с iamcook.ru','https://www.iamcook.ru/showrecipe/16627')]:
-    add(R(title=title, imported_from=rid, source_type='site', source_url=url, tags=['по ссылке'],
-          summary='Сохранена только ссылка: сайт не удалось открыть при импорте.', ingredients=[], steps=[]))
+# Пончики из рикотты (tg:252364) и оливье (tg:280354) — в batch03, по скринам.
 
 out = sys.argv[1] if len(sys.argv) > 1 else 'batch02.json'
 json.dump(B, open(out, 'w'), ensure_ascii=False, indent=1)

@@ -7190,51 +7190,5 @@
     "raw": null
    }
   ]
- },
- {
-  "kind": "recipe",
-  "summary": "Сохранена только ссылка: сайт не удалось открыть при импорте.",
-  "yield_amount": null,
-  "yield_unit": null,
-  "time_min": null,
-  "status": "want",
-  "tags": [
-   "по ссылке"
-  ],
-  "methods": [],
-  "notes": null,
-  "source_type": "site",
-  "source_author": null,
-  "source_url": "http://dolcevitablog.ru/2021/03/17/ponchiki-iz-rikotty/",
-  "source_ref": null,
-  "original_lang": "ru",
-  "imported_from": "tg:252364",
-  "media": [],
-  "steps": [],
-  "title": "Пончики из рикотты",
-  "ingredients": []
- },
- {
-  "kind": "recipe",
-  "summary": "Сохранена только ссылка: сайт не удалось открыть при импорте.",
-  "yield_amount": null,
-  "yield_unit": null,
-  "time_min": null,
-  "status": "want",
-  "tags": [
-   "по ссылке"
-  ],
-  "methods": [],
-  "notes": null,
-  "source_type": "site",
-  "source_author": null,
-  "source_url": "https://www.iamcook.ru/showrecipe/16627",
-  "source_ref": null,
-  "original_lang": "ru",
-  "imported_from": "tg:280354",
-  "media": [],
-  "steps": [],
-  "title": "Рецепт с iamcook.ru",
-  "ingredients": []
  }
 ]

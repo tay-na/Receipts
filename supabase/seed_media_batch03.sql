@@ -1,0 +1,18 @@
+begin;
+delete from recipe_media where recipe_id=(select id from recipes where imported_from='tg:252364');
+insert into recipe_media(recipe_id,position,kind,path) select id,0,'cover','media/tg-252364-0.webp' from recipes where imported_from='tg:252364';
+delete from recipe_media where recipe_id=(select id from recipes where imported_from='drive:sandwiches-1');
+insert into recipe_media(recipe_id,position,kind,path) select id,0,'cover','media/drive-sandwiches-1-0.webp' from recipes where imported_from='drive:sandwiches-1';
+delete from recipe_media where recipe_id=(select id from recipes where imported_from='drive:sandwiches-2');
+insert into recipe_media(recipe_id,position,kind,path) select id,0,'cover','media/drive-sandwiches-2-0.webp' from recipes where imported_from='drive:sandwiches-2';
+delete from recipe_media where recipe_id=(select id from recipes where imported_from='drive:sandwiches-3');
+insert into recipe_media(recipe_id,position,kind,path) select id,0,'cover','media/drive-sandwiches-3-0.webp' from recipes where imported_from='drive:sandwiches-3';
+delete from recipe_media where recipe_id=(select id from recipes where imported_from='drive:sandwiches-4');
+insert into recipe_media(recipe_id,position,kind,path) select id,0,'cover','media/drive-sandwiches-4-0.webp' from recipes where imported_from='drive:sandwiches-4';
+delete from recipe_media where recipe_id=(select id from recipes where imported_from='drive:sandwiches-5');
+insert into recipe_media(recipe_id,position,kind,path) select id,0,'cover','media/drive-sandwiches-5-0.webp' from recipes where imported_from='drive:sandwiches-5';
+delete from recipe_media where recipe_id=(select id from recipes where imported_from='drive:sandwiches-6');
+insert into recipe_media(recipe_id,position,kind,path) select id,0,'cover','media/drive-sandwiches-6-0.webp' from recipes where imported_from='drive:sandwiches-6';
+delete from recipe_media where recipe_id=(select id from recipes where imported_from='drive:sandwiches-7');
+insert into recipe_media(recipe_id,position,kind,path) select id,0,'cover','media/drive-sandwiches-7-0.webp' from recipes where imported_from='drive:sandwiches-7';
+commit;
