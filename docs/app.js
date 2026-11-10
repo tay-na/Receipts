@@ -35,40 +35,29 @@ async function route() {
   return showList();
 }
 
-// ---------- вход по коду из письма ----------
-function showLogin(email = '', step = 1, error = '') {
+// ---------- вход по почте и паролю (пользователей создаём в Supabase → Authentication → Users) ----------
+function showLogin(email = '', error = '') {
   app.innerHTML = `
   <form class="login" id="f">
     <h1>Рецепты</h1>
-    ${step === 1 ? `
-      <p class="muted">Введи почту — пришлём код для входа.</p>
-      <input type="email" name="email" required autocomplete="email" placeholder="почта" value="${esc(email)}">
-      <button class="btn main">Получить код</button>` : `
-      <p class="muted">Код отправлен на ${esc(email)}. Письмо может прийти через минуту, проверь «Спам».</p>
-      <input name="code" inputmode="numeric" autocomplete="one-time-code" required placeholder="код из письма">
-      <button class="btn main">Войти</button>
-      <button type="button" class="btn" id="again">Другая почта</button>`}
+    <input type="email" name="email" required autocomplete="username" placeholder="почта" value="${esc(email)}">
+    <input type="password" name="password" required autocomplete="current-password" placeholder="пароль">
+    <button class="btn main">Войти</button>
     <div class="err">${esc(error)}</div>
   </form>`;
   const f = app.querySelector('#f');
-  app.querySelector('#again')?.addEventListener('click', () => showLogin(email));
   f.addEventListener('submit', async e => {
     e.preventDefault();
-    const btn = f.querySelector('.main'); btn.disabled = true;
-    if (step === 1) {
-      const em = f.email.value.trim();
-      const { error } = await sb.auth.signInWithOtp({ email: em, options: { shouldCreateUser: true } });
-      error ? showLogin(em, 1, humanError(error)) : showLogin(em, 2);
-    } else {
-      const { error } = await sb.auth.verifyOtp({ email, token: f.code.value.trim(), type: 'email' });
-      error ? showLogin(email, 2, humanError(error)) : (location.hash = '#/', route());
-    }
+    f.querySelector('.main').disabled = true;
+    const em = f.email.value.trim();
+    const { error } = await sb.auth.signInWithPassword({ email: em, password: f.password.value });
+    error ? showLogin(em, humanError(error)) : (location.hash = '#/', route());
   });
 }
 function humanError(e) {
   const m = e?.message || String(e);
-  if (/rate limit|too many/i.test(m)) return 'Слишком много писем подряд. Подожди пару минут и попробуй снова.';
-  if (/expired|invalid/i.test(m)) return 'Код не подошёл или устарел. Запроси новый.';
+  if (/rate limit|too many/i.test(m)) return 'Слишком много попыток. Подожди пару минут.';
+  if (/invalid login|credentials/i.test(m)) return 'Неверная почта или пароль.';
   return m;
 }
 
@@ -143,7 +132,7 @@ async function showList() {
 
 function showNoHouse() {
   app.innerHTML = `<div class="login"><h1>Почти готово</h1>
-    <p>Ты вошла, но ещё не добавлена в «Наш дом». Выполни в Supabase → SQL Editor файл <b>supabase/add_member.sql</b> со своей почтой и обнови страницу.</p>
+    <p>Вход выполнен, но эта почта ещё не добавлена в «Наш дом». Выполни в Supabase → SQL Editor файл <b>supabase/add_member.sql</b> с этой почтой и обнови страницу.</p>
     <button class="btn" onclick="location.reload()">Обновить</button></div>`;
 }
 function showError(e) {

@@ -1,5 +1,5 @@
 // Кэшируем только оболочку приложения. Данные всегда берутся из базы.
-const CACHE = 'shell-v1';
+const CACHE = 'shell-v2';
 const SHELL = ['./', 'index.html', 'style.css', 'app.js', 'manifest.webmanifest', 'icon.svg', 'apple-touch-icon.png'];
 self.addEventListener('install', e => { e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL))); self.skipWaiting(); });
 self.addEventListener('activate', e => {
