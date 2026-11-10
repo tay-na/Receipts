@@ -17,6 +17,7 @@ function sessionStorageGet(k) { try { return sessionStorage.getItem(k); } catch 
 function sessionStorageSet(k, v) { try { sessionStorage.setItem(k, v); } catch { } }
 
 let recipes = null; // кэш списка
+const cover = r => (r.recipe_media || []).sort((a, b) => a.position - b.position).find(m => m.kind !== 'pdf')?.path;
 
 // ---------- роутинг ----------
 window.addEventListener('hashchange', route);
@@ -65,7 +66,7 @@ function humanError(e) {
 async function loadRecipes(force = false) {
   if (recipes && !force) return recipes;
   const { data, error } = await sb.from('recipes')
-    .select('id,kind,title,status,rating,source_type,source_author,tags,recipe_ingredients(name)')
+    .select('id,kind,title,status,rating,source_type,source_author,tags,recipe_ingredients(name),recipe_media(path,kind,position)')
     .order('title');
   if (error) throw error;
   recipes = data;
@@ -122,11 +123,12 @@ async function showList() {
     app.querySelector('#count').textContent = words.length || ui.filter !== 'all'
       ? `Найдено: ${out.length}` : `Всего рецептов: ${out.length}`;
     app.querySelector('#list').innerHTML = out.map(({ r, hits }) => `
-      <a class="row" href="#/r/${r.id}">
-        <b>${esc(r.title)}${r.kind === 'idea' ? '<span class="badge idea">идея</span>' : ''}${r.status === 'cooked' ? '<span class="badge cooked">готовила</span>' : ''}</b>
+      <a class="row${cover(r) ? ' has-thumb' : ''}" href="#/r/${r.id}">
+        ${cover(r) ? `<img class="thumb" src="${esc(cover(r).replace('.webp', '-t.webp'))}" alt="" loading="lazy">` : ''}
+        <div class="rt"><b>${esc(r.title)}${r.kind === 'idea' ? '<span class="badge idea">идея</span>' : ''}${r.status === 'cooked' ? '<span class="badge cooked">готовила</span>' : ''}</b>
         <div class="sub">${esc([SRC[r.source_type], r.source_author].filter(Boolean).join(' · '))}${r.rating ? ' · ' + '★'.repeat(r.rating) : ''}</div>
         ${hits.length ? `<div class="hit">есть: ${hits.map(h => `<mark>${esc(h)}</mark>`).join(', ')}</div>` : ''}
-      </a>`).join('') || `<p class="muted center">Ничего не нашлось</p>`;
+      </div></a>`).join('') || `<p class="muted center">Ничего не нашлось</p>`;
   }
 }
 
@@ -142,10 +144,11 @@ function showError(e) {
 // ---------- карточка ----------
 async function fetchFull(id) {
   const { data, error } = await sb.from('recipes')
-    .select('*, recipe_ingredients(*), recipe_steps(*)').eq('id', id).single();
+    .select('*, recipe_ingredients(*), recipe_steps(*), recipe_media(*)').eq('id', id).single();
   if (error) throw error;
   data.ingredients = data.recipe_ingredients.sort((a, b) => a.position - b.position);
   data.steps = data.recipe_steps.sort((a, b) => a.position - b.position);
+  data.media = (data.recipe_media || []).filter(m => m.kind !== 'pdf').sort((a, b) => a.position - b.position);
   return data;
 }
 
@@ -155,10 +158,14 @@ function renderRecipe(r) {
   const y = [];
   if (r.yield_amount) y.push(`${num(r.yield_amount)} ${esc(r.yield_unit || '')}`);
   if (r.time_min) y.push(`${r.time_min} мин`);
-  return `
+  const pics = r.media || [];
+  const head = `
     <h2>${esc(r.title)}${r.kind === 'idea' ? '<span class="badge idea">идея</span>' : ''}</h2>
     <div class="meta">${[...meta, ...y].join(' · ')}</div>
-    ${r.summary ? `<p class="sum">${esc(r.summary)}</p>` : ''}
+    ${r.summary ? `<p class="sum">${esc(r.summary)}</p>` : ''}`;
+  return `
+    ${pics.length ? `<div class="head"><div>${head}</div>
+      <button class="cover" data-gallery="0"><img src="${esc(pics[0].path)}" alt="">${pics.length > 1 ? `<span class="more">+${pics.length - 1}</span>` : ''}</button></div>` : head}
     <h3>${r.kind === 'idea' ? 'Что понадобится' : 'Ингредиенты'}</h3>
     ${renderIngredients(r)}
     ${r.steps.length ? `<h3>Как готовить</h3>${renderSteps(r.steps)}` : ''}`;
@@ -206,8 +213,10 @@ async function showRecipe(id) {
   app.innerHTML = `<p class="muted center">Загрузка…</p>`;
   let r;
   try { r = await fetchFull(id); } catch (e) { return showError(e); }
+  galleryPics = r.media;
+  window.scrollTo(0, 0);
   app.innerHTML = `
-    <button class="back" id="back">← Все рецепты</button>
+    <div class="bar"><button class="back" id="back">← Все рецепты</button></div>
     <article class="card">${renderRecipe(r)}
       <div class="tags">${(r.tags || []).map(t => `<span>#${esc(t)}</span>`).join('')}</div>
     </article>
@@ -254,6 +263,16 @@ async function showRecipe(id) {
   };
 }
 
+// ---------- галерея ----------
+let galleryPics = [];
+document.addEventListener('click', e => {
+  const b = e.target.closest('[data-gallery]'); if (!b) return;
+  const g = document.createElement('div'); g.className = 'gallery';
+  g.innerHTML = `<div class="gstrip">${galleryPics.map(m => `<img src="${esc(m.path)}" alt="">`).join('')}</div><button class="gclose" aria-label="Закрыть">✕</button>`;
+  g.addEventListener('click', ev => { if (ev.target.tagName !== 'IMG') g.remove(); });
+  document.body.appendChild(g);
+});
+
 // ---------- публичная ссылка (без входа) ----------
 async function showShared(token) {
   app.innerHTML = `<p class="muted center">Загрузка…</p>`;
@@ -262,7 +281,8 @@ async function showShared(token) {
     app.innerHTML = `<div class="login"><h1>Рецепт не найден</h1><p class="muted">Ссылка устарела или неверная.</p></div>`;
     return;
   }
-  const r = { ...data.recipe, ingredients: data.ingredients || [], steps: data.steps || [] };
+  const r = { ...data.recipe, ingredients: data.ingredients || [], steps: data.steps || [], media: data.media || [] };
+  galleryPics = r.media;
   document.title = r.title;
   app.innerHTML = `<article class="card">${renderRecipe(r)}</article>`;
 }
